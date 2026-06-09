@@ -10,7 +10,7 @@ EasyOCR, and SQLite for detection history.
 Frame
   └── Stage 1: vehicle detector (YOLOv8n COCO, filtered to car/truck/bus/motorcycle)
         └── For each detected vehicle, crop the frame:
-              └── Stage 2: plate detector (YOLOv8 plate-finetuned, from Hugging Face)
+              └── Stage 2: plate detector (YOLOv8 plate-finetuned on custom dataset)
                     └── For each plate, crop and run EasyOCR
         └── Update VehicleTracker (IoU on vehicle bboxes)
               └── Track accumulates plate readings across frames
@@ -29,9 +29,8 @@ Why two-stage:
 
 Default models:
 
-- Stage 1: `yolov8n.pt` (auto-downloaded by Ultralytics)
-- Stage 2: [`Koushim/yolov8-license-plate-detection`](https://huggingface.co/Koushim/yolov8-license-plate-detection)
-  — YOLOv8n fine-tuned on a single `license_plate` class, MIT licensed.
+- Stage 1: `yolov8n.pt` (auto-downloaded by Ultralytics, COCO pre-trained)
+- Stage 2: `models/license_plate_yolov8n.pt` — YOLOv8n fine-tuned on custom license plate dataset
 
 Both are swappable via env vars (see [Swapping the models](#swapping-the-models)).
 
@@ -130,6 +129,21 @@ alpr-system/
 └── .env.example
 ```
 
+## Training a custom plate detector
+
+To train a new plate detector on your own dataset:
+
+```bash
+python train_plate_detector.py
+```
+
+This will:
+1. Extract the annotated dataset from `dataset.zip`
+2. Train a YOLOv8 model on your custom data
+3. Save the best model to `models/license_plate_yolov8n.pt`
+
+See `TRAINING_SETUP.md` for detailed training configuration options.
+
 ## Swapping the models
 
 Both detectors are configured via env vars:
@@ -139,15 +153,13 @@ Both detectors are configured via env vars:
 VEHICLE_WEIGHTS=models/yolov8n.pt        # any YOLOv8 trained on COCO
 VEHICLE_CONF_THRESHOLD=0.40
 
-# Stage 2 — plate
+# Stage 2 — plate (custom trained)
 YOLO_WEIGHTS=models/license_plate_yolov8n.pt
-HF_MODEL_REPO=Koushim/yolov8-license-plate-detection
-HF_MODEL_FILE=best.pt
 DETECTION_CONF_THRESHOLD=0.35
 ```
 
-Re-run `python scripts/download_model.py` after changing the HF settings, or
-drop a `.pt` directly at the configured local path.
+Simply update `YOLO_WEIGHTS` to point to your custom trained model, or drop a 
+new `.pt` file at the configured path.
 
 If you want a heavier stage-1 model for better small-vehicle recall, point
 `VEHICLE_WEIGHTS` at `yolov8s.pt` or `yolov8m.pt` (Ultralytics will download
